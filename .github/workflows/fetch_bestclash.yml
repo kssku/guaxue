@@ -1,38 +1,39 @@
-import requests
-import json
-from pathlib import Path
+name: GitHub Scraper
 
-# ========= 配置区 =========
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # 每 6 小时运行一次
+  workflow_dispatch:       # 允许手动运行
 
-# 你要刮取的 GitHub 原始文件（示例）
-TARGET_URL = "https://raw.githubusercontent.com/OWNER/REPO/BRANCH/FILE"
+permissions:
+  contents: write          # 允许提交代码（关键）
 
-OUTPUT_PATH = Path("data/result.json")
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
 
-# ========= 抓取 =========
+    steps:
+      - name: 拉取仓库
+        uses: actions/checkout@v4
 
-def fetch():
-    resp = requests.get(TARGET_URL, timeout=30)
-    resp.raise_for_status()
-    return resp.text
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-# ========= 主逻辑 =========
+      - name: 安装依赖
+        run: |
+          pip install requests
 
-def main():
-    content = fetch()
+      - name: 执行刮取脚本
+        run: |
+          python scraper.py
 
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+      - name: 提交结果
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
 
-    data = {
-        "source": TARGET_URL,
-        "length": len(content),
-        "preview": content[:200]
-    }
-
-    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-    print("抓取并写入完成")
-
-if __name__ == "__main__":
-    main()
+          git add .
+          git commit -m "自动更新抓取内容" || echo "无变更"
+          git push
