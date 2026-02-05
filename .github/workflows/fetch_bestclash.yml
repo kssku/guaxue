@@ -1,41 +1,38 @@
-name: 自动抓取 BestClash proxies.yaml
+import requests
+import json
+from pathlib import Path
 
-on:
-  schedule:
-    - cron: "0 * * * *"
-  workflow_dispatch:
+# ========= 配置区 =========
 
-permissions:
-  contents: write
+# 你要刮取的 GitHub 原始文件（示例）
+TARGET_URL = "https://raw.githubusercontent.com/OWNER/REPO/BRANCH/FILE"
 
-jobs:
-  fetch:
-    runs-on: ubuntu-latest
+OUTPUT_PATH = Path("data/result.json")
 
-    steps:
-      - uses: actions/checkout@v4
+# ========= 抓取 =========
 
-      - name: 抓取 proxies.yaml（安全模式）
-        run: |
-          mkdir -p data
+def fetch():
+    resp = requests.get(TARGET_URL, timeout=30)
+    resp.raise_for_status()
+    return resp.text
 
-          TMP_FILE=$(mktemp)
+# ========= 主逻辑 =========
 
-          if curl -fsSL \
-            "https://raw.githubusercontent.com/PuddinCat/BestClash/refs/heads/main/proxies.yaml" \
-            -o "$TMP_FILE"; then
-              mv "$TMP_FILE" data/proxies.yaml
-              echo "抓取成功，已更新文件"
-          else
-              echo "抓取失败，保留旧文件"
-              rm -f "$TMP_FILE"
-          fi
+def main():
+    content = fetch()
 
-      - name: 提交更新
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-          git add data/proxies.yaml
-          git commit -m "自动同步 BestClash proxies.yaml" || echo "内容无变化"
-          git push
+    data = {
+        "source": TARGET_URL,
+        "length": len(content),
+        "preview": content[:200]
+    }
+
+    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    print("抓取并写入完成")
+
+if __name__ == "__main__":
+    main()
