@@ -1,39 +1,33 @@
-name: GitHub Scraper
+name: 自动抓取 BestClash proxies.yaml
 
 on:
   schedule:
-    - cron: "0 */6 * * *"   # 每 6 小时运行一次
-  workflow_dispatch:       # 允许手动运行
+    - cron: "0 * * * *"   # 每小时一次（你可自行调整）
+  workflow_dispatch:
 
 permissions:
-  contents: write          # 允许提交代码（关键）
+  contents: write
 
 jobs:
-  scrape:
+  fetch:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 拉取仓库
+      - name: 拉取当前仓库
         uses: actions/checkout@v4
 
-      - name: 设置 Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: 安装依赖
+      - name: 抓取 proxies.yaml
         run: |
-          pip install requests
+          mkdir -p data
+          curl -fsSL \
+            "https://raw.githubusercontent.com/PuddinCat/BestClash/refs/heads/main/proxies.yaml" \
+            -o data/proxies.yaml
 
-      - name: 执行刮取脚本
-        run: |
-          python scraper.py
-
-      - name: 提交结果
+      - name: 提交更新
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          git add .
-          git commit -m "自动更新抓取内容" || echo "无变更"
+          git add data/proxies.yaml
+          git commit -m "自动同步 BestClash proxies.yaml" || echo "文件无变化"
           git push
